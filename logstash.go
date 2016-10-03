@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
 	"github.com/benschw/dns-clb-go/clb"
 	"github.com/gliderlabs/logspout/router"
 )
@@ -18,9 +19,9 @@ func init() {
 
 // LogstashAdapter is an adapter that streams UDP JSON to Logstash.
 type LogstashAdapter struct {
-	c 		clb
-	conn	net.Conn
-	route	*router.Route
+	c     clb
+	conn  net.Conn
+	route *router.Route
 }
 
 func getopt(name, dfault string) string {
@@ -42,7 +43,7 @@ func NewLogstashAdapter(route *router.Route) (router.LogAdapter, error) {
 
 	address, err := c.GetAddress(route.Address)
 	if err != nil {
-	    panic(err)
+		panic(err)
 	}
 
 	conn, err := transport.Dial(address, route.Options)
@@ -51,9 +52,9 @@ func NewLogstashAdapter(route *router.Route) (router.LogAdapter, error) {
 	}
 
 	return &LogstashAdapter{
-		route:	route,
-		conn:	conn,
-		c:		c
+		route: route,
+		conn:  conn,
+		c:     c,
 	}, nil
 }
 
@@ -148,6 +149,7 @@ func (a *LogstashAdapter) Stream(logstream chan *router.Message) {
 			a.conn = conn
 			_, err = a.conn.Write(js)
 			if err != nil {
+				log.Info(" JS: ", len(js), " ", js)
 				log.Fatal("logstash - failure after reconnect:", err)
 			}
 		}

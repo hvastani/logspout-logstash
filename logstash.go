@@ -2,14 +2,11 @@ package logstash
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"log"
 	"net"
-	"net/http"
 	"os"
 	"strings"
 
-	"github.com/benschw/dns-clb-go/clb"
 	"github.com/gliderlabs/logspout/router"
 )
 
@@ -19,7 +16,6 @@ func init() {
 
 // LogstashAdapter is an adapter that streams UDP JSON to Logstash.
 type LogstashAdapter struct {
-	c     clb.LoadBalancer
 	conn  net.Conn
 	route *router.Route
 }
@@ -39,13 +35,6 @@ func NewLogstashAdapter(route *router.Route) (router.LogAdapter, error) {
 		log.Fatal("Could not find udp transport for logstash module")
 	}
 
-	c := clb.New()
-
-	//address, err := c.GetAddress(route.Address)
-	//if err != nil {
-	//	panic(err)
-	//}
-
 	conn, err := transport.Dial(route.Address, route.Options)
 	if err != nil {
 		log.Fatal("Error dialing logstash address endpoint:", err)
@@ -54,7 +43,6 @@ func NewLogstashAdapter(route *router.Route) (router.LogAdapter, error) {
 	return &LogstashAdapter{
 		route: route,
 		conn:  conn,
-		c:     c,
 	}, nil
 }
 
@@ -86,16 +74,6 @@ func (a *LogstashAdapter) Stream(logstream chan *router.Message) {
 
 	options := UnmarshalOptions(getopt("OPTIONS", ""))
 
-	resp, err := http.Get("http://169.254.169.254/latest/meta-data/instance-id")
-	instance_id := ""
-	if err == nil {
-		value, err := ioutil.ReadAll(resp.Body)
-		if err == nil {
-			instance_id = string(value)
-		}
-		resp.Body.Close()
-	}
-
 	for m := range logstream {
 		container_options := UnmarshalOptions(GetLogspoutOptionsString(m.Container.Config.Env))
 
@@ -111,14 +89,13 @@ func (a *LogstashAdapter) Stream(logstream chan *router.Message) {
 		}
 
 		msg := LogstashMessage{
-			Message:    m.Data,
-			Name:       m.Container.Name,
-			ID:         m.Container.ID,
-			Image:      m.Container.Config.Image,
-			Hostname:   m.Container.Config.Hostname,
-			Args:       m.Container.Args,
-			InstanceId: instance_id,
-			Options:    container_options,
+			Message:  m.Data,
+			Name:     m.Container.Name,
+			ID:       m.Container.ID,
+			Image:    m.Container.Config.Image,
+			Hostname: m.Container.Config.Hostname,
+			Args:     m.Container.Args,
+			Options:  container_options,
 		}
 		js, err := json.Marshal(msg)
 		if err != nil {
@@ -126,46 +103,37 @@ func (a *LogstashAdapter) Stream(logstream chan *router.Message) {
 			continue
 		}
 
-		//address, err := a.c.GetAddress(a.route.Address)
-		//if err != nil {
-		//	log.Fatal("Could not resolve address for remote host", err)
-		//}
-
-		//if a.conn.RemoteAddr() != address {
-		//	log.Println("Resolved address for remote host and connected address have changed. Updating to use new DNS resolution.")
-		//	transport, _ := router.AdapterTransports.Lookup(a.route.AdapterTransport("udp"))
-		//	conn, err := transport.Dial(a.route.Address, a.route.Options)
-		//	a.conn = conn
-		//}
-
 		_, err = a.conn.Write(js)
 		if err != nil {
-			transport, found := router.AdapterTransports.Lookup(a.route.AdapterTransport("udp"))
-			if !found {
-				log.Fatal("unable to find adapter: " + a.route.Adapter)
-			}
-			conn, err := transport.Dial(a.route.Address, a.route.Options)
-			if err != nil {
-				log.Fatal("logstash:", err)
-			}
-			a.conn = conn
-			_, err = a.conn.Write(js)
-			if err != nil {
-				log.Println(" JS: ", len(js), " ", js)
-				log.Fatal("logstash - failure after reconnect:", err)
-			}
+			log.Println(" JS: ", len(js), " ", js)
+			log.Fatal("logstash - failure after reconnect:", err)
 		}
+		//if err != nil {
+		//	transport, found := router.AdapterTransports.Lookup(a.route.AdapterTransport("udp"))
+		//	if !found {
+		//		log.Fatal("unable to find adapter: " + a.route.Adapter)
+		//	}
+		//	conn, err := transport.Dial(a.route.Address, a.route.Options)
+		//	if err != nil {
+		//		log.Fatal("logstash:", err)
+		//	}
+		//	a.conn = conn
+		//	_, err = a.conn.Write(js)
+		//	if err != nil {
+		//		log.Println(" JS: ", len(js), " ", js)
+		//		log.Fatal("logstash - failure after reconnect:", err)
+		//	}
+		//}
 	}
 }
 
 // LogstashMessage is a simple JSON input to Logstash.
 type LogstashMessage struct {
-	Message    string            `json:"message"`
-	Name       string            `json:"docker.name"`
-	ID         string            `json:"docker.id"`
-	Image      string            `json:"docker.image"`
-	Hostname   string            `json:"docker.hostname"`
-	Args       []string          `json:"docker.args,omitempty"`
-	Options    map[string]string `json:"options,omitempty"`
-	InstanceId string            `json:"instance-id,omitempty"`
+	Message  string            `json:"message"`
+	Name     string            `json:"docker.name"`
+	ID       string            `json:"docker.id"`
+	Image    string            `json:"docker.image"`
+	Hostname string            `json:"docker.hostname"`
+	Args     []string          `json:"docker.args,omitempty"`
+	Options  map[string]string `json:"options,omitempty"`
 }

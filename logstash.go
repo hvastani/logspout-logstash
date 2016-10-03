@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/gliderlabs/logspout/router"
 )
@@ -34,7 +35,7 @@ func NewLogstashAdapter(route *router.Route) (router.LogAdapter, error) {
 	if !found {
 		log.Fatal("Could not find udp transport for logstash module")
 	}
-
+	time.Sleep(time.Second * 10)
 	conn, err := transport.Dial(route.Address, route.Options)
 	if err != nil {
 		log.Fatal("Error dialing logstash address endpoint:", err)

@@ -41,12 +41,12 @@ func NewLogstashAdapter(route *router.Route) (router.LogAdapter, error) {
 
 	c := clb.New()
 
-	address, err := c.GetAddress(route.Address)
-	if err != nil {
-		panic(err)
-	}
+	//address, err := c.GetAddress(route.Address)
+	//if err != nil {
+	//	panic(err)
+	//}
 
-	conn, err := transport.Dial(address, route.Options)
+	conn, err := transport.Dial(route.address, route.Options)
 	if err != nil {
 		log.Fatal("Error dialing logstash address endpoint:", err)
 	}
@@ -126,14 +126,16 @@ func (a *LogstashAdapter) Stream(logstream chan *router.Message) {
 			continue
 		}
 
-		address, err := c.GetAddress(route.Address)
+		address, err := a.c.GetAddress(a.route.Address)
 		if err != nil {
 			log.Fatal("Could not resolve address for remote host", err)
 		}
 
 		if a.conn.RemoteAddr() != address {
 			log.Println("Resolved address for remote host and connected address have changed. Updating to use new DNS resolution.")
+			transport, _ := router.AdapterTransports.Lookup(a.route.AdapterTransport("udp"))
 			conn, err := transport.Dial(a.route.Address, a.route.Options)
+			a.conn = conn
 		}
 
 		_, err = a.conn.Write(js)
@@ -149,7 +151,7 @@ func (a *LogstashAdapter) Stream(logstream chan *router.Message) {
 			a.conn = conn
 			_, err = a.conn.Write(js)
 			if err != nil {
-				log.Info(" JS: ", len(js), " ", js)
+				log.Println(" JS: ", len(js), " ", js)
 				log.Fatal("logstash - failure after reconnect:", err)
 			}
 		}

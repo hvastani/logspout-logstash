@@ -36,6 +36,7 @@ func NewLogstashAdapter(route *router.Route) (router.LogAdapter, error) {
 		log.Fatal("Could not find udp transport for logstash module")
 	}
 	time.Sleep(time.Second * 10)
+	log.Println(" ROUTE ADDRESS IS ", route.Address, route.Options)
 	conn, err := transport.Dial(route.Address, route.Options)
 	if err != nil {
 		log.Fatal("Error dialing logstash address endpoint:", err)

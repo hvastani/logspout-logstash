@@ -19,7 +19,7 @@ func init() {
 
 // LogstashAdapter is an adapter that streams UDP JSON to Logstash.
 type LogstashAdapter struct {
-	c     clb
+	c     clb.LoadBalancer
 	conn  net.Conn
 	route *router.Route
 }
